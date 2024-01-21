@@ -57,7 +57,7 @@ def get_api_answer(timestamp):
     payload = {'from_date': timestamp}
     try:
         logging.debug(
-            f'Начало запроса к API Практикум.Домашка, '
+            'Начало запроса к API Практикум.Домашка, '
             f'ENDPOINT: {ENDPOINT}, parameters: {payload}'
         )
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
@@ -77,12 +77,17 @@ def get_api_answer(timestamp):
 def check_response(response):
     """Функция проверяет ответ API на соответствие документации."""
     logging.debug('Начало проверки ответа API')
-    if ('homeworks' not in response) and ('current_date' not in response):
-        raise TypeError('Отсутствуют ожидаемые ключи в ответе API')
     if not isinstance(response, dict):
-        raise TypeError('ответ от API не является словарем')
+        raise TypeError(f'ответ от API не является словарем: {type(response)}')
+    if 'homeworks' not in response:
+        raise KeyError('Отсутствует ключ "homeworks" в ответе API')
+    if 'current_date' not in response:
+        raise KeyError('Отсутствует ключ "current_date" в ответе API')
     if not isinstance(response.get('homeworks'), list):
-        raise TypeError('тип данных о домашних рабтах не является списокм')
+        raise TypeError(
+            'Тип данных в ключе "homeworks" в ответе API не является списком: '
+            f'{type(response.get("homeworks"))}'
+        )
     logging.debug('Успешное окончание проверки ответа API')
 
 
@@ -92,11 +97,16 @@ def parse_status(homework):
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if not homework_name:
-        raise KeyError('Отсутствует ключ с названием домашней работы')
+        raise KeyError(
+            'Отсутствует ключ с названием домашней работы "homework_name"'
+        )
     if not homework_status:
-        raise KeyError('Отсутствует ключ со статусом домашней работы')
+        raise KeyError('Отсутствует ключ со статусом домашней работы "status"')
     if homework_status not in HOMEWORK_VERDICTS:
-        raise KeyError('Ключ со статусом работы не соответствует документации')
+        raise KeyError(
+            'Ключ со статусом работы не соответствует документации: '
+            f'{homework_status}'
+        )
     verdict = HOMEWORK_VERDICTS[homework_status]
     logging.debug('Успешное окончание проверки статуса домашней работы')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -116,6 +126,7 @@ def main():
                 homework = response.get('homeworks')[0]
                 message = parse_status(homework)
                 send_message(bot, message)
+                homework_status = message
                 timestamp = int(time.time())
             else:
                 logging.debug('Отсутствие в ответе новых статусов')
